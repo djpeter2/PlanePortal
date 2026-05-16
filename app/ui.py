@@ -287,7 +287,7 @@ class PlanePortalUI:
     def _flip(self):
         scaled = pygame.transform.scale(self._canvas, self._screen.get_size())
         self._screen.blit(scaled, (0, 0))
-        self._flip()
+        pygame.display.flip()
 
     def _fill_rect(self, x, y, w, h, color):
         pygame.draw.rect(self._canvas, color, pygame.Rect(x, y, w, h))
