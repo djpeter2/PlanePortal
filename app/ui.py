@@ -240,6 +240,7 @@ class PlanePortalUI:
     FONT_SIZE = 11
     _NATIVE_W = 320
     _NATIVE_H = 240
+    _NATIVE_LINE_H = 12  # approximate line height in native coords for layout math
 
     def __init__(self, config):
         self._config = config
@@ -255,13 +256,17 @@ class PlanePortalUI:
         pygame.display.set_caption("Plane Portal")
         pygame.mouse.set_visible(False)
 
-        # All drawing targets this fixed 320×240 canvas; it is scaled to the
-        # screen on every flip so layout coordinates never need to change.
-        self._canvas = pygame.Surface((self._NATIVE_W, self._NATIVE_H))
+        # Scale factor: how many screen pixels per native pixel.
+        sw, sh = self._screen.get_size()
+        self._scale = min(sw / self._NATIVE_W, sh / self._NATIVE_H)
+        # Offsets to center the scaled content on the screen.
+        self._ox = (sw - int(self._NATIVE_W * self._scale)) // 2
+        self._oy = (sh - int(self._NATIVE_H * self._scale)) // 2
 
-        # Try monospace system font; fall back to pygame default
-        self._font = pygame.font.SysFont("monospace", self.FONT_SIZE)
-        self._font_large = pygame.font.SysFont("monospace", self.FONT_SIZE * 2)
+        # Fonts sized to match the scale factor.
+        font_size = max(8, int(self.FONT_SIZE * self._scale))
+        self._font = pygame.font.SysFont("monospace", font_size)
+        self._font_large = pygame.font.SysFont("monospace", font_size * 2)
         self._fh = self._font.get_height()
         self._fh_large = self._font_large.get_height()
 
@@ -285,26 +290,37 @@ class PlanePortalUI:
                 sys.exit(0)
 
     def _flip(self):
-        scaled = pygame.transform.scale(self._canvas, self._screen.get_size())
-        self._screen.blit(scaled, (0, 0))
         pygame.display.flip()
 
+    def _r(self, x, y, w, h):
+        """Convert native-coord rect to a scaled screen Rect."""
+        s = self._scale
+        return pygame.Rect(
+            self._ox + int(x * s),
+            self._oy + int(y * s),
+            max(1, int(w * s)),
+            max(1, int(h * s)),
+        )
+
     def _fill_rect(self, x, y, w, h, color):
-        pygame.draw.rect(self._canvas, color, pygame.Rect(x, y, w, h))
+        pygame.draw.rect(self._screen, color, self._r(x, y, w, h))
 
     def _txt(self, text, color, x, cy, large=False):
-        """Render text with x=left, cy=vertical-center (matching CircuitPython label anchor)."""
+        """Render text; x and cy are native coords, cy is the vertical center."""
         font = self._font_large if large else self._font
         fh = self._fh_large if large else self._fh
         surf = font.render(str(text), True, color)
-        self._canvas.blit(surf, (x, cy - fh // 2))
+        px = self._ox + int(x * self._scale)
+        py = self._oy + int(cy * self._scale) - fh // 2
+        self._screen.blit(surf, (px, py))
 
     def _txt_multiline(self, text, color, x, cy, line_spacing=1.1):
-        """Render multi-line text; cy is the center of the first line."""
+        """Render multi-line text; x, cy are native coords."""
         if not text:
             return
         lines = text.split("\n")
-        step = int(self._fh * line_spacing)
+        # Step in native coordinate space so _txt's scaling stays consistent.
+        step = int(self._NATIVE_LINE_H * line_spacing)
         y = cy
         for line in lines:
             self._txt(line, color, x, y)
@@ -322,15 +338,21 @@ class PlanePortalUI:
         self._fill_rect(10, 194, 300, 2, ACCENT_DIM)
 
     def _draw_badge(self, x, color, text):
-        pygame.draw.rect(self._canvas, color, pygame.Rect(x, BADGE_Y, BADGE_WIDTH, BADGE_HEIGHT))
+        pygame.draw.rect(self._screen, color, self._r(x, BADGE_Y, BADGE_WIDTH, BADGE_HEIGHT))
         label = _truncate(str(text), 4)
         surf = self._font.render(label, True, CARD_ALT)
         fw = surf.get_width()
-        bx = x + max(1, (BADGE_WIDTH - fw) // 2)
-        self._canvas.blit(surf, (bx, BADGE_TEXT_CY - self._fh // 2))
+        scaled_badge_w = max(1, int(BADGE_WIDTH * self._scale))
+        px = self._ox + int(x * self._scale) + max(1, (scaled_badge_w - fw) // 2)
+        py = self._oy + int(BADGE_TEXT_CY * self._scale) - self._fh // 2
+        self._screen.blit(surf, (px, py))
 
     def _blit_image(self, surf):
-        self._canvas.blit(surf, (18, 52))
+        target_w = max(1, int(RADAR_WIDTH * self._scale))
+        target_h = max(1, int(RADAR_HEIGHT * self._scale))
+        scaled = pygame.transform.smoothscale(surf, (target_w, target_h))
+        self._screen.blit(scaled, (self._ox + int(18 * self._scale),
+                                   self._oy + int(52 * self._scale)))
 
     # -------------------------------------------------------------------------
     # Public API
