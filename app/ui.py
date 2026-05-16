@@ -238,15 +238,26 @@ def _build_plane_glyph_surface():
 
 class PlanePortalUI:
     FONT_SIZE = 11
+    _NATIVE_W = 320
+    _NATIVE_H = 240
 
     def __init__(self, config):
         self._config = config
         pygame.init()
 
+        # Detect monitor resolution before creating the window.
+        info = pygame.display.Info()
+        display_w = info.current_w if info.current_w > 0 else self._NATIVE_W
+        display_h = info.current_h if info.current_h > 0 else self._NATIVE_H
+
         flags = pygame.FULLSCREEN if config.fullscreen else 0
-        self._screen = pygame.display.set_mode((320, 240), flags)
+        self._screen = pygame.display.set_mode((display_w, display_h), flags)
         pygame.display.set_caption("Plane Portal")
         pygame.mouse.set_visible(False)
+
+        # All drawing targets this fixed 320×240 canvas; it is scaled to the
+        # screen on every flip so layout coordinates never need to change.
+        self._canvas = pygame.Surface((self._NATIVE_W, self._NATIVE_H))
 
         # Try monospace system font; fall back to pygame default
         self._font = pygame.font.SysFont("monospace", self.FONT_SIZE)
@@ -273,15 +284,20 @@ class PlanePortalUI:
                 pygame.quit()
                 sys.exit(0)
 
+    def _flip(self):
+        scaled = pygame.transform.scale(self._canvas, self._screen.get_size())
+        self._screen.blit(scaled, (0, 0))
+        self._flip()
+
     def _fill_rect(self, x, y, w, h, color):
-        pygame.draw.rect(self._screen, color, pygame.Rect(x, y, w, h))
+        pygame.draw.rect(self._canvas, color, pygame.Rect(x, y, w, h))
 
     def _txt(self, text, color, x, cy, large=False):
         """Render text with x=left, cy=vertical-center (matching CircuitPython label anchor)."""
         font = self._font_large if large else self._font
         fh = self._fh_large if large else self._fh
         surf = font.render(str(text), True, color)
-        self._screen.blit(surf, (x, cy - fh // 2))
+        self._canvas.blit(surf, (x, cy - fh // 2))
 
     def _txt_multiline(self, text, color, x, cy, line_spacing=1.1):
         """Render multi-line text; cy is the center of the first line."""
@@ -306,15 +322,15 @@ class PlanePortalUI:
         self._fill_rect(10, 194, 300, 2, ACCENT_DIM)
 
     def _draw_badge(self, x, color, text):
-        pygame.draw.rect(self._screen, color, pygame.Rect(x, BADGE_Y, BADGE_WIDTH, BADGE_HEIGHT))
+        pygame.draw.rect(self._canvas, color, pygame.Rect(x, BADGE_Y, BADGE_WIDTH, BADGE_HEIGHT))
         label = _truncate(str(text), 4)
         surf = self._font.render(label, True, CARD_ALT)
         fw = surf.get_width()
         bx = x + max(1, (BADGE_WIDTH - fw) // 2)
-        self._screen.blit(surf, (bx, BADGE_TEXT_CY - self._fh // 2))
+        self._canvas.blit(surf, (bx, BADGE_TEXT_CY - self._fh // 2))
 
     def _blit_image(self, surf):
-        self._screen.blit(surf, (18, 52))
+        self._canvas.blit(surf, (18, 52))
 
     # -------------------------------------------------------------------------
     # Public API
@@ -348,7 +364,7 @@ class PlanePortalUI:
 
         self._txt(_truncate(footer, 46), TEXT_MUTED, 18, 216)
 
-        pygame.display.flip()
+        self._flip()
 
     def show_refreshing(self, detail, source_label):
         self._pump()
@@ -362,7 +378,7 @@ class PlanePortalUI:
         self._txt("STATUS", TEXT, 222, 56)
         self._txt_multiline(_wrap_text(detail, 13, 5), TEXT_MUTED, 222, 76)
         self._txt(_truncate(detail, 46), WARN, 18, 216)
-        pygame.display.flip()
+        self._flip()
 
     def render_snapshot(self, snapshot, ip_address, source_label, stale=False, detail=None):
         self._pump()
@@ -431,7 +447,7 @@ class PlanePortalUI:
         )
         self._txt(_truncate(footer_text, 46), WARN if stale else TEXT_MUTED, 18, 216)
 
-        pygame.display.flip()
+        self._flip()
 
     # -------------------------------------------------------------------------
     # Data formatting helpers
