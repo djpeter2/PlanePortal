@@ -25,7 +25,8 @@ class PlanePortalApp:
         if validation_error:
             self._ui.show_message("Config required", "Edit settings.toml", validation_error)
             while True:
-                time.sleep(1)
+                self._ui._pump()
+                time.sleep(0.1)
 
         while True:
             cycle_started = time.monotonic()

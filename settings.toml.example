@@ -1,11 +1,8 @@
-# Copy this file to settings.toml on the CIRCUITPY drive and fill in your values.
+# Copy this file to settings.toml and fill in your values.
 # Floats are not supported directly in settings.toml, so latitude/longitude
 # should stay quoted as strings.
 
-CIRCUITPY_WIFI_SSID = "your_wifi_name"
-CIRCUITPY_WIFI_PASSWORD = "your_wifi_password"
-
-# Optional, but strongly recommended for better OpenSky limits.
+# Optional, but strongly recommended for better OpenSky rate limits.
 OPENSKY_CLIENT_ID = "your_opensky_client_id"
 OPENSKY_CLIENT_SECRET = "your_opensky_client_secret"
 
@@ -18,3 +15,6 @@ PLANEPORTAL_RECENT_WINDOW_MINUTES = 10
 PLANEPORTAL_ADSB_CACHE_SECONDS = 1800
 PLANEPORTAL_ENRICHMENT_LIMIT = 4
 PLANEPORTAL_DEBUG = "0"
+
+# Set to "1" to run pygame in fullscreen mode (useful for dedicated Pi displays).
+PLANEPORTAL_FULLSCREEN = "0"

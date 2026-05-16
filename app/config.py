@@ -1,6 +1,30 @@
 import os
 
 
+def _load_settings_toml(path="settings.toml"):
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                if (value.startswith('"') and value.endswith('"')) or (
+                    value.startswith("'") and value.endswith("'")
+                ):
+                    value = value[1:-1]
+                os.environ.setdefault(key, value)
+    except FileNotFoundError:
+        pass
+
+
+_load_settings_toml()
+
+
 def _get_string(name, default=None):
     value = os.getenv(name)
     if value is None:
@@ -45,8 +69,6 @@ def _get_bool(name, default=False):
 
 class AppConfig:
     def __init__(self):
-        self.wifi_ssid = _get_string("CIRCUITPY_WIFI_SSID")
-        self.wifi_password = _get_string("CIRCUITPY_WIFI_PASSWORD")
         self.opensky_client_id = _get_string("OPENSKY_CLIENT_ID")
         self.opensky_client_secret = _get_string("OPENSKY_CLIENT_SECRET")
         self.home_latitude = _get_float("PLANEPORTAL_HOME_LATITUDE", 0.0)
@@ -59,6 +81,7 @@ class AppConfig:
         self.adsb_cache_seconds = max(300, _get_int("PLANEPORTAL_ADSB_CACHE_SECONDS", 1800))
         self.enrichment_limit = max(1, _get_int("PLANEPORTAL_ENRICHMENT_LIMIT", 4))
         self.debug = _get_bool("PLANEPORTAL_DEBUG", False)
+        self.fullscreen = _get_bool("PLANEPORTAL_FULLSCREEN", False)
 
     @property
     def recent_window_seconds(self):
@@ -69,10 +92,8 @@ class AppConfig:
         return bool(self.opensky_client_id and self.opensky_client_secret)
 
     def validate(self):
-        if not self.wifi_ssid or not self.wifi_password:
-            return "Add CIRCUITPY_WIFI_SSID and CIRCUITPY_WIFI_PASSWORD in settings.toml"
         if self.home_latitude == 0.0 and self.home_longitude == 0.0:
-            return "Add the watch point coordinates in settings.toml using PLANEPORTAL_HOME_LATITUDE and PLANEPORTAL_HOME_LONGITUDE"
+            return "Add watch point coordinates in settings.toml using PLANEPORTAL_HOME_LATITUDE and PLANEPORTAL_HOME_LONGITUDE"
         return None
 
     def source_label(self):
